@@ -11,6 +11,7 @@ import '../pdf_report.dart';
 import '../places.dart';
 import 'ic_import.dart';
 import 'route_map.dart';
+import '../tracker.dart';
 
 class TripEditScreen extends StatefulWidget {
   const TripEditScreen({super.key, required this.trip, this.isNew = false});
@@ -345,25 +346,26 @@ class _LegCard extends StatelessWidget {
   Future<void> _nearby(BuildContext context, TextEditingController target, bool isFrom) async {
     double? lat;
     double? lng;
+    String where = '';
     if (isFrom && index == 0 && trip.startPlace.lat != null) {
       lat = trip.startPlace.lat;
       lng = trip.startPlace.lng;
+      where = '出発地';
     } else if (!isFrom && trip.endPlace.lat != null) {
       lat = trip.endPlace.lat;
       lng = trip.endPlace.lng;
+      where = '到着地';
     } else if (trip.route.isNotEmpty) {
       final p = isFrom ? trip.route.first : trip.route.last;
       lat = p.lat;
       lng = p.lng;
-    }
-    if (lat == null || lng == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('この記録には位置情報がありません')));
-      return;
+      where = isFrom ? '出発地' : '到着地';
     }
     final picked = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
-      builder: (c) => _NearbySheet(lat: lat!, lng: lng!, mode: form.mode),
+      builder: (c) => _NearbySheet(lat: lat, lng: lng, where: where, mode: form.mode),
     );
     if (picked != null) {
       target.text = picked;
@@ -522,9 +524,12 @@ class _LegCard extends StatelessWidget {
 
 /// 近くの駅・バス停の候補
 class _NearbySheet extends StatefulWidget {
-  const _NearbySheet({required this.lat, required this.lng, required this.mode});
-  final double lat;
-  final double lng;
+  const _NearbySheet({required this.lat, required this.lng, required this.where, required this.mode});
+
+  /// 記録した位置（無ければ現在地で探す）
+  final double? lat;
+  final double? lng;
+  final String where;
   final TransportMode mode;
 
   @override
@@ -532,35 +537,101 @@ class _NearbySheet extends StatefulWidget {
 }
 
 class _NearbySheetState extends State<_NearbySheet> {
-  late final Future<List<NearbyPlace>> _f = Places.nearby(widget.lat, widget.lng, widget.mode);
+  Future<NearbyResult>? _f;
+  String _where = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.lat != null && widget.lng != null) {
+      _where = widget.where;
+      _f = Places.nearby(widget.lat!, widget.lng!, widget.mode);
+    } else {
+      _searchHere();
+    }
+  }
+
+  void _searchHere() {
+    setState(() {
+      _where = '現在地';
+      _f = () async {
+        final err = await Tracker.ensurePermission();
+        if (err != null) return NearbyResult([], 0, error: err);
+        final pos = await Tracker.currentPosition();
+        if (pos == null) return NearbyResult([], 0, error: '現在地を取得できませんでした');
+        return Places.nearby(pos.latitude, pos.longitude, widget.mode);
+      }();
+    });
+  }
+
+  String _km(int m) => m >= 1000 ? '${(m / 1000).toStringAsFixed(m % 1000 == 0 ? 0 : 1)}km' : '${m}m';
 
   @override
   Widget build(BuildContext context) {
     final what = widget.mode == TransportMode.bus ? 'バス停' : '駅';
+    final hereButton = TextButton.icon(
+      onPressed: _searchHere,
+      icon: const Icon(Icons.my_location),
+      label: const Text('現在地で探す'),
+    );
     return SafeArea(
       child: SizedBox(
-        height: 420,
-        child: FutureBuilder<List<NearbyPlace>>(
+        height: MediaQuery.of(context).size.height * 0.6,
+        child: FutureBuilder<NearbyResult>(
           future: _f,
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 12),
+                  Text('$_where付近の$whatを探しています…'),
+                ]),
+              );
             }
-            final list = snap.data ?? [];
-            if (list.isEmpty) {
-              return Center(child: Text('近くの$whatが見つかりませんでした\n（通信状態を確認するか、手入力してください）', textAlign: TextAlign.center));
+            final r = snap.data ?? NearbyResult([], 0, error: '検索に失敗しました');
+            if (r.places.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(
+                      r.error ?? '$_whereから${_km(r.radius)}以内に$whatが見つかりませんでした。\n地図データに登録されていない可能性があります。手入力してください。',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    if (_where != '現在地') hereButton,
+                    if (r.error != null)
+                      TextButton.icon(
+                        onPressed: () => setState(() {
+                          _f = widget.lat != null && _where != '現在地'
+                              ? Places.nearby(widget.lat!, widget.lng!, widget.mode)
+                              : null;
+                          if (_f == null) _searchHere();
+                        }),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('もう一度'),
+                      ),
+                  ]),
+                ),
+              );
             }
             return ListView(children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Text('近くの$what', style: Theme.of(context).textTheme.titleMedium),
+                padding: const EdgeInsets.fromLTRB(16, 0, 8, 4),
+                child: Row(children: [
+                  Expanded(
+                    child: Text('$_where付近の$what（${_km(r.radius)}以内）', style: Theme.of(context).textTheme.titleMedium),
+                  ),
+                  if (_where != '現在地') hereButton,
+                ]),
               ),
-              for (final p in list)
+              for (final p in r.places)
                 ListTile(
                   leading: Icon(widget.mode == TransportMode.bus ? Icons.directions_bus : Icons.train),
                   title: Text(p.name),
                   subtitle: p.line.isEmpty ? null : Text(p.line),
-                  trailing: Text('${p.distance.round()}m'),
+                  trailing: Text(_km(p.distance.round())),
                   onTap: () => Navigator.pop(context, p.name),
                 ),
             ]);
