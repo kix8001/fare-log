@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 // 検索サーバーへの接続確認（CI のログに結果を出すだけで、失敗にはしない）
 import 'package:fare_log/models.dart';
 import 'package:fare_log/places.dart';
