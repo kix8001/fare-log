@@ -78,8 +78,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const _Header('このアプリについて'),
         const ListTile(
-          title: Text('地図・駅・バス停のデータ'),
-          subtitle: Text('© OpenStreetMap contributors'),
+          title: Text('地図・駅のデータ'),
+          subtitle: Text('© OpenStreetMap contributors、HeartRails Express'),
+        ),
+        const ListTile(
+          title: Text('バス停のデータ'),
+          subtitle: Text('「国土数値情報（バス停留所データ）」（国土交通省）を加工して作成（令和4年時点）'),
         ),
         const ListTile(
           title: Text('記録の保存場所'),

@@ -2,6 +2,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'busstops.dart';
 import 'screens/history.dart';
 import 'screens/home.dart';
 import 'screens/settings.dart';
@@ -21,6 +22,8 @@ Future<void> main() async {
   final cur = store.current;
   if (cur != null) tracker.startRoute(cur);
   runApp(const FareApp());
+  // バス停データを先に読み込んでおく（初回の検索を速くする）
+  BusStops.preload();
 }
 
 class FareApp extends StatelessWidget {

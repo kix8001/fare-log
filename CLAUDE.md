@@ -18,7 +18,7 @@
 
 - `models.dart`：Trip（移動）／Leg（乗り物1回分）／Settings。保存は `store.dart` が JSON ファイルで行う。
 - `tracker.dart`：geolocator で現在地とルートを記録する。Android はフォアグラウンドサービス、iOS はバックグラウンド位置更新。
-- `places.dart`：Overpass API（OpenStreetMap）で近くの駅・バス停を探す。
+- `places.dart`：近くの駅・バス停を探す。駅は HeartRails Express と Overpass API（OpenStreetMap）に同時に問い合わせる。バス停は Overpass が不安定なため、`busstops.dart` の内蔵データ（`assets/busstops.tsv.gz`、国土数値情報 P11 を `tool/build_busstops.py` で変換、約28万件）から通信なしで探す。
 - `felica.dart`：nfc_manager で交通系ICカードの履歴（サービスコード 0x090F）を読み、運賃を残額の差から求める。駅コードを駅名にする表は持っていない。iOS は Info.plist の FeliCa システムコード `0003` と NFC の entitlements が必要。
 - `period.dart`：締め期間（1日〜月末／16日〜翌月15日）。
 - `pdf_report.dart`：交通費精算書PDF。フォントは `assets/fonts` の BIZ UDゴシック。

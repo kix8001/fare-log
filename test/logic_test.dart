@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:fare_log/busstops.dart';
 import 'package:fare_log/felica.dart';
 import 'package:fare_log/models.dart';
 import 'package:fare_log/pdf_report.dart';
@@ -86,5 +87,12 @@ void main() {
     File('build/sample.pdf')
       ..createSync(recursive: true)
       ..writeAsBytesSync(bytes);
+  });
+
+  test('内蔵バス停データの検索', () async {
+    final hits = await BusStops.nearby(35.6812, 139.7671, radius: 500); // 東京駅
+    expect(hits, isNotEmpty);
+    expect(hits.any((h) => h.name.contains('東京駅')), isTrue);
+    expect(hits.first.distance, lessThan(500));
   });
 }

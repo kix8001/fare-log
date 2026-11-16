@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'busstops.dart';
 import 'models.dart';
 
 class NearbyPlace {
@@ -40,18 +41,26 @@ class Places {
   ];
 
   /// 探す半径（メートル）
-  static const _busRadius = 1500;
   static const _trainRadius = 5000;
 
   /// 近い順に駅またはバス停を返す。
   static Future<NearbyResult> nearby(double lat, double lng, TransportMode mode) async {
-    final radius = mode == TransportMode.bus ? _busRadius : _trainRadius;
+    if (mode == TransportMode.bus) {
+      // バス停はアプリ内蔵の全国データから探す（通信不要）
+      for (final r in [800, 2000, 5000]) {
+        final hits = await BusStops.nearby(lat, lng, radius: r);
+        if (hits.isNotEmpty) {
+          return NearbyResult(
+            [for (final h in hits) NearbyPlace(h.name, TransportMode.bus, h.distance, line: h.operator)],
+            r,
+          );
+        }
+      }
+      return NearbyResult([], 5000);
+    }
+    const radius = _trainRadius;
     // 駅は国内の駅データ（HeartRails Express）と OpenStreetMap を同時に引き、早く返った方を使う
-    final futures = <Future<List<NearbyPlace>?>>[
-      _overpass(lat, lng, mode, radius),
-      if (mode != TransportMode.bus) _heartRails(lat, lng),
-    ];
-    final r = await _firstNonEmpty(futures);
+    final r = await _firstNonEmpty([_heartRails(lat, lng), _overpass(lat, lng, mode, radius)]);
     if (r == null) {
       return NearbyResult([], radius, error: '検索サーバーにつながりませんでした。電波の良い場所でもう一度試してください。');
     }
