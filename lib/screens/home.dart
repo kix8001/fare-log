@@ -190,11 +190,11 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(elapsed, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
         ]),
         const SizedBox(height: 8),
-        Text('出発 ${DateFormat('H:mm').format(t.start)}　${t.startPlace.name.isEmpty ? '（住所を取得中…）' : t.startPlace.name}'),
+        Text('出発 ${DateFormat('H:mm').format(t.start)}　${t.startPlace.lat == null ? (el.inSeconds < 60 ? '（現在地を取得中…）' : '（現在地を取得できません。屋外や窓の近くで改善します）') : (t.startPlace.name.isEmpty ? '（住所を取得中…）' : t.startPlace.name)}'),
         const SizedBox(height: 12),
         RouteMap(trip: t, height: 300, follow: true),
         const SizedBox(height: 4),
-        Text(store.settings.recordRoute ? '記録した地点：${t.route.length}' : 'ルート記録はオフです（設定で変更できます）',
+        Text(store.settings.recordRoute ? '記録した地点：${t.route.length}　経過時間に関係なく「移動完了」を押せます' : 'ルート記録はオフです（設定で変更できます）',
             style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
         const SizedBox(height: 24),
         SizedBox(
